@@ -1,0 +1,109 @@
+#Get Booking Details By PassengerID
+
+CREATE PROCEDURE GetBookingDetailsByPassengerID
+  @PassengerID varchar(10)
+AS
+BEGIN
+  SELECT *
+  FROM Bookings
+  WHERE PassengerID = @PassengerID;
+END;
+
+#Usage
+
+EXEC GetBookingDetailsByPassengerID 'PassengerID';
+
+#Get Total Revenue by 
+
+CREATE PROCEDURE GetTotalRevenueBy
+  @FilterType varchar(20) = 'ALL',  -- Optional parameter for filtering type (ALL, TrainClass, DateRange)
+  @TrainClass varchar(10) = NULL,  -- Optional parameter for train class (used with TrainClass filter)
+  @StartDate date = NULL,         -- Optional parameter for start date (used with DateRange filter)
+  @EndDate date = NULL           -- Optional parameter for end date (used with DateRange filter)
+AS
+BEGIN
+  -- Define WHERE clause based on input parameters
+  DECLARE @whereClause NVARCHAR(MAX) = '';
+  
+  CASE @FilterType
+    WHEN 'ALL' THEN
+      SET @whereClause = '1=1';  -- No filtering
+    WHEN 'TrainClass' THEN
+      IF @TrainClass IS NOT NULL
+        SET @whereClause = CONCAT(@whereClause, ' WHERE TrainClass = @TrainClass');
+      ELSE
+        RAISERROR ('TrainClass parameter is required for TrainClass filter.', 16, 1);
+    WHEN 'DateRange' THEN
+      IF @StartDate IS NOT NULL AND @EndDate IS NOT NULL
+        SET @whereClause = CONCAT(@whereClause, ' WHERE BookingDate BETWEEN @StartDate AND @EndDate');
+      ELSE
+        RAISERROR ('StartDate and EndDate parameters are required for DateRange filter.', 16, 1);
+    ELSE
+      RAISERROR ('Invalid FilterType. Supported values are ALL, TrainClass, or DateRange.', 16, 1);
+  END CASE;
+
+  -- Select total revenue based on the WHERE clause
+  SELECT SUM(CAST(Price AS FLOAT)) AS TotalRevenue
+  FROM Bookings
+  WHERE @whereClause;
+END;
+
+#Usage
+
+EXEC GetTotalRevenueBy;  #Get total revenue
+EXEC GetTotalRevenueBy @FilterType = 'TrainClass', @TrainClass = 'TrainClass'; #Get total revenue for a specific train class
+EXEC GetTotalRevenueBy @FilterType = 'DateRange', @StartDate = '2024-02-01', @EndDate = '2024-02-29'; #Get total revenue between specific dates
+
+
+#Get Average Booking Price
+
+CREATE PROCEDURE GetAverageBookingPrice
+  @TrainClass varchar(10) = NULL,  -- Optional parameter for train class
+  @StartDate date = NULL,         -- Optional parameter for start date
+  @EndDate date = NULL           -- Optional parameter for end date
+AS
+BEGIN
+  -- Define WHERE clause based on input parameters
+  DECLARE @whereClause NVARCHAR(MAX) = '';
+  IF @TrainClass IS NOT NULL
+    SET @whereClause = CONCAT(@whereClause, ' WHERE TrainClass = @TrainClass');
+  IF @StartDate IS NOT NULL AND @EndDate IS NOT NULL
+    SET @whereClause = ISNULL(@whereClause, '') + CONCAT(' AND BookingDate BETWEEN @StartDate AND @EndDate');
+
+  -- Select the average price based on the WHERE clause
+  SELECT AVG(CAST(Price AS FLOAT)) AS AveragePrice
+  FROM Bookings
+  WHERE 1=1  -- Placeholder for the constructed WHERE clause
+  @whereClause;
+END;
+
+# Usage
+
+
+EXEC GetAverageBookingPrice;   #Get the average price for all bookings
+EXEC GetAverageBookingPrice @TrainClass = 'Economy';  #Get average price for a specific train class
+EXEC GetAverageBookingPrice @StartDate = '2024-02-01', @EndDate = '2024-02-29';  #Get average price between specific dates
+EXEC GetAverageBookingPrice @TrainClass = 'FirstClass', @StartDate = '2024-02-01', @EndDate = '2024-02-29' #Get average price for a specific train class between dates:
+
+#Get the Most booked Train
+
+CREATE PROCEDURE GetMostPopularTrain
+  @StartDate date,
+  @EndDate date
+AS
+BEGIN
+  -- Select train with the most bookings between @StartDate and @EndDate
+  SELECT TOP 1 TrainID, COUNT(*) AS BookingCount
+  FROM Bookings
+  WHERE BookingDate BETWEEN @StartDate AND @EndDate
+  GROUP BY TrainID
+  ORDER BY BookingCount DESC;
+END;
+
+# Usage
+EXEC GetMostPopularTrain '2024-01-01', '2024-02-29';
+
+
+
+  
+
